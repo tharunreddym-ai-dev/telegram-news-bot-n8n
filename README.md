@@ -12,8 +12,7 @@ A Telegram bot that takes a topic in plain English, maps it to a news category, 
 6. The report is normalized, converted into a `.md` file, and sent back as a Telegram document.
 
 ## Example
-
-A full report from a live run is in [`examples/news_report.md`](examples/news_report.md). It is a snapshot of that day's news. The format is:
+ The Output Example Sample
 
 ```markdown
 1. The Florida High School Athletic Association (FHSAA) released its first weekly
