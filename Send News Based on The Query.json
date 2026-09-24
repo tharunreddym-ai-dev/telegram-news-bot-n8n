@@ -1,0 +1,340 @@
+{
+  "name": "Send News Based on The Query",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.articles_text }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a professional news analyst.  Your task is to analyze and summarize the provided news articles into a detailed, clear, and factual report.  Rules:  1. Use ONLY the information provided in the input. 2. Do NOT invent, assume, speculate, or add facts that are not present in the input. 3. Merge duplicate or closely related stories into a single point when appropriate. 4. Write exactly 10 numbered points covering the most important developments, facts, events, and insights from the provided news. 5. Each point must contain 3–4 complete sentences and should provide meaningful detail rather than simply listing facts. 6. Prioritize important developments, significant changes, key people or organizations involved, causes, effects, and other relevant information available in the input. 7. Maintain a neutral, factual, and unbiased tone throughout the report. 8. After the 10 points, write a detailed conclusion of approximately 5–7 sentences that synthesizes the overall situation, major trends, connections, and implications discussed in the provided news. 9. The conclusion must be based strictly on the information provided and must not introduce any new facts or speculation. 10. Do not include an introduction, title, or markdown heading. 11. Return only the final report containing the 10 numbered points followed by the conclusion."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -336,
+        288
+      ],
+      "id": "3794c82f-dcb3-4a79-b1bc-e69fead54da1",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -416,
+        0
+      ],
+      "id": "ebb3eaa3-5b07-402a-88cf-55a757333466",
+      "name": "Trigger",
+      "webhookId": "eefa3c67-069b-4a96-8ee1-f79856f9256a",
+      "credentials": {
+        "telegramApi": {
+          "id": "xwzAZ03C5uLcQtZw",
+          "name": "tool_space"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"openai/gpt-oss-20b\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a news category classifier. Map the user's message to EXACTLY ANY of these 18 valid categories only: business, crime, domestic, education, entertainment, environment, food, health, lifestyle, other, politics, science, sports, technology, top, tourism, world, gaming ONLY.\\n\\nReturn ONLY valid JSON in the following format:\\n\\n{\\\"category\\\":\\\"technology\\\"}\\n\\nRules:\\n- The category value must be one of the 18 listed above, in lowercase, exactly as spelled.\\n- Match the user's topic to the closest relevant category (e.g. cricket -> sports, AI or openai -> technology, election -> politics, stock market -> business).\\n- If the message mentions two clearly different topics\\n- If no topic is mentioned or it's unclear, default to {\\\"category\\\":\\\"technology,sports\\\"}.\\n- Do not include explanations or any text outside the JSON.\\n\\nExamples:\\nUser:Give me lastest update about ai\\nOutput: {\\\"category\\\":\\\"technology\\\"}\\n\\nUser:latest tesla news\\nOutput: {\\\"category\\\":\\\"business\\\"}\\n\\nUser:give news about cricket\\nOutput: {\\\"category\\\":\\\"sports\\\"}\\n\\nUser:give me the news about tech and sports \\nOutput: {\\\"category\\\":\\\"technology,sports\\\"}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.text }}\"\n    }\n  ],\n  \"temperature\": 0,\n  \"response_format\": {\n    \"type\": \"json_object\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -192,
+        0
+      ],
+      "id": "ecbefbfa-a036-44f9-8b9c-6155d096dd8f",
+      "name": "Extract Topic",
+      "credentials": {
+        "groqApi": {
+          "id": "H9x3xQy6H0LLkQBm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $input.first().json.choices?.[0]?.message?.content;\n\ntry {\n  const parsed = JSON.parse(content);\n\n  return [\n    {\n      json: {\n        query: parsed.category || \"technology,sports\"\n      }\n    }\n  ];\n} catch (err) {\n  return [\n    {\n      json: {\n        query: \"technology,sports\"\n      }\n    }\n  ];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        0
+      ],
+      "id": "29e94910-bd5f-41fe-946e-f9979d75d009",
+      "name": "Format Query"
+    },
+    {
+      "parameters": {
+        "url": "https://newsdata.io/api/1/news",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "language",
+              "value": "en"
+            },
+            {
+              "name": "category",
+              "value": "={{ $json.query }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        272,
+        0
+      ],
+      "id": "5385fce3-ecff-43f6-8a28-dc3cf31fbfaa",
+      "name": "Get News",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "A8tL4tlh2g07C3WY",
+          "name": "Test Bearer Credential"
+        },
+        "httpQueryAuth": {
+          "id": "rv2XQ1RgvJ3HvIX7",
+          "name": "news"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const articles = $input.first().json.results;\n\nconst formatted = articles\n  .slice(0, 20)\n  .map((a, i) => `${i + 1}. ${a.title}\\n${a.description || 'No description'}`)\n  .join('\\n\\n');\n\nreturn [{ json: { articles_text: formatted } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        0
+      ],
+      "id": "a10449a1-a783-41c5-bfe6-a871df6963c7",
+      "name": "Format News "
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        448
+      ],
+      "id": "295305f1-84cd-45e5-8532-0aef8f7eeab6",
+      "name": "GPT-OSS-120B",
+      "credentials": {
+        "groqApi": {
+          "id": "H9x3xQy6H0LLkQBm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.text;\n\nconst formatted = text.replace(/^- /gm, '• ');\n\nreturn [{ json: { message: formatted } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        304
+      ],
+      "id": "771a1cbc-3c99-4a89-92ff-eb26abbbd947",
+      "name": "Format Report"
+    },
+    {
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "={{ $('Trigger').item.json.message.chat.id}}",
+        "binaryData": true,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        496,
+        304
+      ],
+      "id": "1fc15272-2bbb-4c84-af0f-940872af8dae",
+      "name": "Send News",
+      "webhookId": "5d4e222f-2ab5-4a04-8525-48512e3c6fb1",
+      "credentials": {
+        "telegramApi": {
+          "id": "xwzAZ03C5uLcQtZw",
+          "name": "tool_space"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $input.first().json.message;\n\nif (!message) {\n  throw new Error(\"No 'message' field found\");\n}\n\nconst buffer = Buffer.from(message, \"utf8\");\n\nreturn [\n  {\n    json: {\n      filename: \"news_report.md\"\n    },\n    binary: {\n      data: {\n        data: buffer.toString(\"base64\"),\n        mimeType: \"text/markdown\",\n        fileName: \"news_report.md\",\n        fileExtension: \"md\"\n      }\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        304
+      ],
+      "id": "bc4b562f-6820-4e46-9926-aeb932d197fe",
+      "name": "Convertion to Binary"
+    },
+    {
+      "parameters": {
+        "content": "# SEND NEWS BASED ON THE QUERY\n\nThis workflow automatically understands the user's news request, identifies the relevant news category, and retrieves the latest articles from NewsData.io.\n\nThe selected articles are processed by an LLM that analyzes the available information, removes unnecessary repetition, and produces a detailed 10-point factual news report with a conclusion.\n\nThe generated report is converted into a Markdown file and automatically delivered to the user through Telegram.\n\nThe workflow combines AI-based topic classification, news API integration, LLM-powered analysis, data formatting, file generation, and Telegram delivery into a single automated pipeline.",
+        "height": 448,
+        "width": 464
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        672,
+        48
+      ],
+      "typeVersion": 1,
+      "id": "a075f3a5-b3e5-4b24-8bc5-cd73e9f67e32",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Format Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Topic": {
+      "main": [
+        [
+          {
+            "node": "Format Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Query": {
+      "main": [
+        [
+          {
+            "node": "Get News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get News": {
+      "main": [
+        [
+          {
+            "node": "Format News ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format News ": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT-OSS-120B": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Report": {
+      "main": [
+        [
+          {
+            "node": "Convertion to Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convertion to Binary": {
+      "main": [
+        [
+          {
+            "node": "Send News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c06f7206-e48e-4c7f-85ed-022ea22ed7eb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1630a9b5a6440a44170b073990650ae9a4fd64d7853e1ab0afc6f4352ebda0d8"
+  },
+  "nodeGroups": [],
+  "id": "Jg2kGFbsUKpE2SB0",
+  "tags": []
+}

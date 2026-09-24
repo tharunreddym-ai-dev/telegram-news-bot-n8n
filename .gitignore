@@ -1,0 +1,9 @@
+# Secrets
+.env
+*.env
+credentials*.json
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
